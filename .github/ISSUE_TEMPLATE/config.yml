@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 'Community & Ecosystem Inquiries'
+    url: 'mailto:boardport@proton.me'
+    about: 'Contact the BoardPort team for general inquiries and hardware support'
