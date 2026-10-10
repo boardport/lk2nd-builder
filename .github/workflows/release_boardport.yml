@@ -85,8 +85,10 @@ jobs:
       # ---
       - name: Prepare toolchain container
         run: |
-          make lk2nd-pull-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}" || \
-            make lk2nd-build-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}"
+          make lk2nd-pull-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}" || { \
+            make lk2nd-pull-toolbox || true; \
+            make lk2nd-build-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}"; \
+          }
       # ---
       - name: Compile secondary bootloader (lk2nd)
         run: |
