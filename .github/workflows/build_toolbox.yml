@@ -13,13 +13,6 @@ on:
         type: boolean
         required: false
         default: false
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/build_toolbox.yml'
-      - 'docker/images/toolchain/Dockerfile.debian'
-      - 'docker/images/toolchain/docker-entrypoint.sh'
 
 env:
   docker_image: 'boardport/lk2nd-toolbox'
