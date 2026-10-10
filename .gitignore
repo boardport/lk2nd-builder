@@ -37,6 +37,10 @@
 *.old
 *~
 
+# Environment variables
+.env*
+!.env.example
+
 # Operating System Files
 .DS_Store
 .DS_Store?

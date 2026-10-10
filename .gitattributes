@@ -1,0 +1,10 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Export ignore for distribution archives
+.github/ export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore
+.editorconfig export-ignore
+.markdownlint-cli2.jsonc export-ignore
+.aiignore export-ignore
