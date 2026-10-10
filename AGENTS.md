@@ -42,7 +42,8 @@ The project includes a root orchestrator `Makefile` and modular tasks in `.make/
 - Specific build and container tasks are imported from `.make/*.mk`.
 - **Root Makefile Policy:** It is strictly forbidden to add new commands directly to the master `Makefile`. All targets belong in modular `*.mk` files.
 
-Detailed submodule documentation is available in `docker/README.md` and `overlay/README.md`.
+Detailed technical documentation is located in `docs/` (`docs/overview.en.md`, `docs/architecture.en.md`, `docs/development.en.md`).
+Submodule documentation is available in `docker/README.md` and `overlay/README.md`.
 
 ---
 

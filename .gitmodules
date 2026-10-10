@@ -1,6 +1,8 @@
 [submodule "overlay"]
 	path = overlay
 	url = git@github.com:boardport/lk2nd-overlay.git
+	branch = main
 [submodule "docker"]
 	path = docker
 	url = git@github.com:boardport/lk2nd-docker.git
+	branch = main

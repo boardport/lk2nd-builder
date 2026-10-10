@@ -10,6 +10,9 @@ Check out the available support resources below.
 Before filing an issue, please review the documentation available in this repository:
 
 - Main project documentation: [README.md](../README.md) / [README_RU.md](../README_RU.md)
+- Project Overview: [overview.en.md](../docs/overview.en.md) / [overview.ru.md](../docs/overview.ru.md)
+- System Architecture: [architecture.en.md](../docs/architecture.en.md) / [architecture.ru.md](../docs/architecture.ru.md)
+- Development & Build Guide: [development.en.md](../docs/development.en.md) / [development.ru.md](../docs/development.ru.md)
 - AI & Agent Guidelines: [AGENTS.md](../AGENTS.md) / [AGENTS_RU.md](../AGENTS_RU.md)
 - Contribution guide: [CONTRIBUTING.md](./CONTRIBUTING.md) / [CONTRIBUTING_RU.md](./CONTRIBUTING_RU.md)
 

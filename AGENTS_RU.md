@@ -43,7 +43,8 @@
 - **Правило корневого Makefile:** Категорически запрещено добавлять новые команды непосредственно
   в корневой `Makefile`. Все цели размещаются в файлах `*.mk`.
 
-Подробная документация подмодулей доступна в `docker/README_RU.md` и `overlay/README_RU.md`.
+Подробная техническая документация расположена в каталоге `docs/` (`docs/overview.ru.md`, `docs/architecture.ru.md`, `docs/development.ru.md`).
+Документация подмодулей доступна в `docker/README_RU.md` и `overlay/README_RU.md`.
 
 ---
 

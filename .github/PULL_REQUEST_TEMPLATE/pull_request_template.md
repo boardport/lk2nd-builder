@@ -11,7 +11,7 @@ Provide a clear and concise description of the changes proposed in this Pull Req
 - [ ] Build Orchestration & Tooling (Scripts, Makefile automation)
 - [ ] AI Agent Context & Guidelines (`AGENTS.md`, `.aiignore`)
 - [ ] GitHub Infrastructure & CI (`.github/`)
-- [ ] Documentation (`README.md`, guides)
+- [ ] Documentation (`README.md`, `docs/`, guides)
 
 ## Type of Change
 

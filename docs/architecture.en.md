@@ -33,9 +33,12 @@ lk2nd-builder/
 ├── LICENSE                         # MIT License
 ├── Makefile                        # Master automation entry point
 ├── AGENTS.md / AGENTS_RU.md        # Operational guidelines for autonomous AI agents
-├── README.md / README_RU.md        # Public documentation and Quick Start guide
-├── ARCHITECTURE.md                 # System architecture overview (current document)
-├── ARCHITECTURE_RU.md              # System architecture overview (Russian version)
+├── README.md / README_RU.md        # Public overview and documentation index
+│
+├── docs/                           # Technical documentation (GitHub Pages & Astro)
+│   ├── overview.en.md / .ru.md     # Project overview and hardware targets
+│   ├── architecture.en.md / .ru.md # System architecture and container model
+│   └── development.en.md / .ru.md  # Make workflow guide and local development
 │
 ├── .github/                        # Community templates and CI/CD pipelines
 │   ├── workflows/                  # GitHub Actions automation workflows
@@ -44,17 +47,13 @@ lk2nd-builder/
 │   │   ├── release_target.yml      # Compile and publish bootloader images to GitHub Releases
 │   │   └── markdownlint.yml        # Automated markdown documentation verification
 │   ├── ISSUE_TEMPLATE/             # Issue templates (bug reports, feature requests)
-│   └── PULL_REQUEST_TEMPLATE.md    # Pull request description template
+│   └── PULL_REQUEST_TEMPLATE/      # Pull request description templates
 │
 ├── .make/                          # Modular Make workflow scripts
 │   └── lk2nd_docker.mk             # OCI image management and build commands
 │
-├── docker/                         # Submodule: boardport/lk2nd-docker
-│   └── images/                     # Dockerfile.debian for toolbox/toolchain/target
-│
-└── overlay/                        # Submodule: boardport/lk2nd-overlay
-    ├── lk2nd/                      # Device trees (dts/msm8916-boardport/)
-    └── project/                    # Project targets (lk2nd-msm8916-boardport.mk)
+├── docker/                         # Git submodule: container recipes & toolchains
+└── overlay/                        # Git submodule: hardware targets & device trees
 ```
 
 ---
@@ -63,27 +62,21 @@ lk2nd-builder/
 
 The build pipeline is organized into a 3-tier OCI container hierarchy:
 
-```text
-+-----------------------------------------------------------------+
-| 1. Toolbox Layer (ghcr.io/boardport/lk2nd-toolbox:latest)       |
-| - Debian 13 (Trixie), arm-none-eabi-gcc, dtc, python3, sudo     |
-| - TOOLCHAIN_PREFIX=arm-none-eabi-, unprivileged user (UID 1000) |
-+--------------------------------+--------------------------------+
-                                 |
-                                 v
-+-----------------------------------------------------------------+
-| 2. Toolchain Layer (ghcr.io/boardport/lk2nd-toolchain:<tag>)    |
-| - Shallow clone of upstream lk2nd (branch, tag, or commit SHA)  |
-| - Clean workspace in /opt/lk2nd                                 |
-+--------------------------------+--------------------------------+
-                                 |
-                                 v
-+-----------------------------------------------------------------+
-| 3. Target Layer (ghcr.io/boardport/lk2nd-target:<tag>)          |
-| - Integrated BoardPort overlay (release archive or git clone)   |
-| - Merged lk2nd/ and project/ trees onto upstream workspace      |
-| - Ready for immediate offline compilation                       |
-+-----------------------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph L1["1. Toolbox Layer"]
+        TB["ghcr.io/boardport/lk2nd-toolbox:latest<br/>• Debian 13 (Trixie)<br/>• arm-none-eabi-gcc, dtc, python3, sudo<br/>• TOOLCHAIN_PREFIX=arm-none-eabi-<br/>• Unprivileged user (UID 1000)"]
+    end
+
+    subgraph L2["2. Toolchain Layer"]
+        TC["ghcr.io/boardport/lk2nd-toolchain:&lt;tag&gt;<br/>• Shallow clone of upstream lk2nd<br/>• Pinned branch, tag, or commit SHA<br/>• Clean workspace in /opt/lk2nd"]
+    end
+
+    subgraph L3["3. Target Layer"]
+        TG["ghcr.io/boardport/lk2nd-target:&lt;tag&gt;<br/>• Integrated BoardPort overlay<br/>• Release archive or shallow git clone<br/>• Merged lk2nd/ and project/ trees<br/>• Ready for immediate offline compilation"]
+    end
+
+    TB --> TC --> TG
 ```
 
 ---

@@ -40,7 +40,8 @@ LTE modems, and mobile devices.
 
 ### 2. Documentation Standards
 
-- All public documentation must follow `.editorconfig` and `.markdownlint-cli2.jsonc`.
+- All public documentation (including `README*.md` and `docs/*.md`) must follow `.editorconfig` and `.markdownlint-cli2.jsonc`.
+- Documents inside `docs/` must not use relative links to local files to support future static site generation.
 - Run `npx markdownlint-cli2` locally to ensure zero errors before opening a pull request.
 
 ---

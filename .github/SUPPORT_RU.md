@@ -10,6 +10,9 @@
 Перед созданием issue, пожалуйста, ознакомьтесь с документацией репозитория:
 
 - Основная документация проекта: [README.md](../README.md) / [README_RU.md](../README_RU.md)
+- Обзор проекта: [overview.ru.md](../docs/overview.ru.md) / [overview.en.md](../docs/overview.en.md)
+- Архитектура системы: [architecture.ru.md](../docs/architecture.ru.md) / [architecture.en.md](../docs/architecture.en.md)
+- Руководство по разработке и сборке: [development.ru.md](../docs/development.ru.md) / [development.en.md](../docs/development.en.md)
 - Регламент для AI-ассистентов: [AGENTS.md](../AGENTS.md) / [AGENTS_RU.md](../AGENTS_RU.md)
 - Руководство контрибьютора: [CONTRIBUTING.md](./CONTRIBUTING.md) / [CONTRIBUTING_RU.md](./CONTRIBUTING_RU.md)
 

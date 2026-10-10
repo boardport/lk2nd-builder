@@ -33,9 +33,12 @@ lk2nd-builder/
 ├── LICENSE                         # Лицензия MIT
 ├── Makefile                        # Главный входной фасад автоматизации
 ├── AGENTS.md / AGENTS_RU.md        # Регламент для автономных AI-агентов
-├── README.md / README_RU.md        # Публичная документация и Quick Start
-├── ARCHITECTURE.md                 # Архитектурное описание системы
-├── ARCHITECTURE_RU.md              # Архитектурное описание системы (русская версия)
+├── README.md / README_RU.md        # Публичный обзор и индекс документации
+│
+├── docs/                           # Техническая документация (GitHub Pages & Astro)
+│   ├── overview.en.md / .ru.md     # Обзор проекта и аппаратные платформы
+│   ├── architecture.en.md / .ru.md # Архитектура системы и модель контейнеров
+│   └── development.en.md / .ru.md  # Руководство по Make и локальной разработке
 │
 ├── .github/                        # Шаблоны сообщества и CI/CD
 │   ├── workflows/                  # Конвейеры автоматизации GitHub Actions
@@ -44,17 +47,13 @@ lk2nd-builder/
 │   │   ├── release_target.yml      # Сборка и публикация образов загрузчика в GitHub Releases
 │   │   └── markdownlint.yml        # Автоматическая проверка документации
 │   ├── ISSUE_TEMPLATE/             # Шаблоны обращений (баг-репорты, фичи)
-│   └── PULL_REQUEST_TEMPLATE.md    # Шаблон описания PR
+│   └── PULL_REQUEST_TEMPLATE/      # Шаблоны описания PR
 │
 ├── .make/                          # Модульные сценарии Make
 │   └── lk2nd_docker.mk             # Команды управления OCI-образами и сборкой
 │
-├── docker/                         # Submodule: boardport/lk2nd-docker
-│   └── images/                     # Dockerfile.debian для toolbox/toolchain/target
-│
-└── overlay/                        # Submodule: boardport/lk2nd-overlay
-    ├── lk2nd/                      # Деревья устройств (dts/msm8916-boardport/)
-    └── project/                    # Проекты сборки (lk2nd-msm8916-boardport.mk)
+├── docker/                         # Git submodule: рецепты контейнеров и тулчейны
+└── overlay/                        # Git submodule: платформенные таргеты и DTS
 ```
 
 ---
@@ -63,27 +62,21 @@ lk2nd-builder/
 
 Сборочный конвейер структурирован в виде 3-уровневой OCI-иерархии:
 
-```text
-+-----------------------------------------------------------------+
-| 1. Слой Toolbox (ghcr.io/boardport/lk2nd-toolbox:latest)        |
-| - Debian 13 (Trixie), arm-none-eabi-gcc, dtc, python3, sudo     |
-| - TOOLCHAIN_PREFIX=arm-none-eabi-, пользователь lk2nd (UID 1000)|
-+--------------------------------+--------------------------------+
-                                 |
-                                 v
-+-----------------------------------------------------------------+
-| 2. Слой Toolchain (ghcr.io/boardport/lk2nd-toolchain:<tag>)     |
-| - Неглубокое клонирование апстрима lk2nd (ветка, тег или коммит)|
-| - Чистое сборочное дерево в /opt/lk2nd                          |
-+--------------------------------+--------------------------------+
-                                 |
-                                 v
-+-----------------------------------------------------------------+
-| 3. Слой Target (ghcr.io/boardport/lk2nd-target:<tag>)           |
-| - Интеграция оверлея lk2nd-overlay (релизный архив или git)     |
-| - Внедрение деревьев lk2nd/ и project/ поверх апстрима          |
-| - Готовность к моментальной компиляции без сетевых запросов     |
-+-----------------------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph L1["1. Слой Toolbox"]
+        TB["ghcr.io/boardport/lk2nd-toolbox:latest<br/>• Debian 13 (Trixie)<br/>• arm-none-eabi-gcc, dtc, python3, sudo<br/>• TOOLCHAIN_PREFIX=arm-none-eabi-<br/>• Пользователь lk2nd (UID 1000)"]
+    end
+
+    subgraph L2["2. Слой Toolchain"]
+        TC["ghcr.io/boardport/lk2nd-toolchain:&lt;tag&gt;<br/>• Неглубокое клонирование апстрима lk2nd<br/>• Фиксированная ветка, тег или коммит<br/>• Чистое сборочное дерево в /opt/lk2nd"]
+    end
+
+    subgraph L3["3. Слой Target"]
+        TG["ghcr.io/boardport/lk2nd-target:&lt;tag&gt;<br/>• Интеграция оверлея lk2nd-overlay<br/>• Релизный архив или shallow git clone<br/>• Внедрение деревьев lk2nd/ и project/<br/>• Готовность к офлайн-компиляции"]
+    end
+
+    TB --> TC --> TG
 ```
 
 ---
