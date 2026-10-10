@@ -169,12 +169,13 @@ lk2nd-build:: lk2nd-check ## Compile lk2nd target in container (Usage: make lk2n
 		-v "$(OVERLAY_DIR):/opt/lk2nd-overlay:ro" \
 		"$(DOCKER_IMAGE_PREFIX)/lk2nd-toolchain:$(LK2ND_REF)" \
 		bash -c 'set -eux; \
+			sudo chown -R lk2nd:lk2nd /opt/lk2nd/output; \
 			cp -rf /opt/lk2nd-overlay/lk2nd/. ./lk2nd/ 2>/dev/null || true; \
 			cp -rf /opt/lk2nd-overlay/project/. ./project/ 2>/dev/null || true; \
 			make -j$$(nproc) $(LK2ND_TARGET); \
 			mkdir -p /opt/lk2nd/output; \
 			cp -rf build-$(LK2ND_TARGET)/* /opt/lk2nd/output/; \
-			chown -R $(CTX_UID):$(CTX_GID) /opt/lk2nd/output; \
+			sudo chown -R $(CTX_UID):$(CTX_GID) /opt/lk2nd/output; \
 			echo "[INFO] Build completed. Artifacts saved to docker/volumes/output/"'
 
 lk2nd-clean:: ## Clean compiled bootloader artifacts from output volume
