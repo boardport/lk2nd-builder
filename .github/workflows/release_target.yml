@@ -1,0 +1,194 @@
+name: Release Bootloader Target
+
+on:
+  workflow_dispatch:
+    inputs:
+      lk2nd_ref:
+        description: 'Upstream lk2nd release tag or branch'
+        required: true
+        default: 'main'
+        type: string
+      lk2nd_target:
+        description: 'Target bootloader project to compile'
+        required: true
+        default: 'lk2nd-msm8916-boardport'
+        type: string
+      release_tag:
+        description: 'GitHub Release tag name (e.g. 23.1, 23.1-1, or latest)'
+        required: true
+        default: '23.1'
+        type: string
+      is_prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        required: false
+        default: false
+      is_draft:
+        description: 'Create as draft release'
+        type: boolean
+        required: false
+        default: false
+  push:
+    tags:
+      - '[0-9]+.[0-9]+*'
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  release-target:
+    name: Release Bootloader (${{ inputs.lk2nd_target || 'lk2nd-msm8916-boardport' }} @ ${{ inputs.release_tag || github.ref_name }})
+    runs-on: ubuntu-latest
+    steps:
+      # ---
+      - name: Checkout repository
+        id: checkout-repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.ORG_GITHUB_TOKEN || github.token }}
+          submodules: recursive
+      # ---
+      - name: Setup Docker Buildx
+        id: setup-buildx
+        uses: docker/setup-buildx-action@v4
+      # ---
+      - name: Log in to GitHub Container Registry
+        id: login-ghcr
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.ORG_GITHUB_TOKEN || github.token }}
+      # ---
+      - name: Resolve build parameters
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "lk2nd_ref=${{ inputs.lk2nd_ref }}" >> $GITHUB_OUTPUT
+            echo "target=${{ inputs.lk2nd_target }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ inputs.release_tag }}" >> $GITHUB_OUTPUT
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "lk2nd_ref=${TAG}" >> $GITHUB_OUTPUT
+            echo "target=lk2nd-msm8916-boardport" >> $GITHUB_OUTPUT
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          fi
+      # ---
+      - name: Prepare toolchain container
+        run: |
+          make lk2nd-pull-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}" || \
+            make lk2nd-build-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}"
+      # ---
+      - name: Compile bootloader target
+        run: |
+          make lk2nd-build \
+            LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}" \
+            LK2ND_TARGET="${{ steps.params.outputs.target }}"
+      # ---
+      - name: Package release assets
+        id: package
+        run: |
+          mkdir -p dist
+          SRC_DIR="docker/volumes/output"
+          TAG="${{ steps.params.outputs.tag }}"
+          TARGET="${{ steps.params.outputs.target }}"
+
+          # Copy core bootable binaries
+          cp "${SRC_DIR}/lk2nd.img" "dist/${TARGET}-${TAG}-lk2nd.img"
+          cp "${SRC_DIR}/emmc_appsboot.mbn" "dist/${TARGET}-${TAG}-emmc_appsboot.mbn"
+          cp "${SRC_DIR}/qcdt.img" "dist/${TARGET}-${TAG}-qcdt.img"
+          cp "${SRC_DIR}/lk.bin" "dist/${TARGET}-${TAG}-lk.bin"
+
+          # Create full archive with device tree blobs
+          tar -czf "dist/${TARGET}-${TAG}.tar.gz" -C "${SRC_DIR}" .
+
+          # Calculate SHA-256 checksums
+          (cd dist && sha256sum * > SHA256SUMS)
+      # ---
+      - name: Generate bilingual release notes
+        run: |
+          TAG="${{ steps.params.outputs.tag }}"
+          TARGET="${{ steps.params.outputs.target }}"
+          REF="${{ steps.params.outputs.lk2nd_ref }}"
+
+          cat << 'EOF' > RELEASE_NOTES.md
+          # 🚀 BoardPort — lk2nd Bootloader Release
+          EOF
+
+          cat << EOF >> RELEASE_NOTES.md
+
+          ## 🇬🇧 English
+
+          Precompiled secondary bootloader images for **${TARGET}**, based on upstream lk2nd **${REF}**.
+
+          ### 📦 Release Assets
+          - **\`${TARGET}-${TAG}-lk2nd.img\`**: Android boot image for fastboot booting/flashing (contains QCDT DTB table).
+          - **\`${TARGET}-${TAG}-emmc_appsboot.mbn\`**: Bootloader image for EDL/QDL flashing or eMMC partition writing.
+          - **\`${TARGET}-${TAG}-qcdt.img\`**: Consolidated Device Tree table.
+          - **\`${TARGET}-${TAG}.tar.gz\`**: Full build tree including compiled device tree blobs (\`.dtb\`).
+
+          ### ⚡ Usage Instructions
+          - **Test boot without flashing:**
+            \`\`\`bash
+            fastboot boot ${TARGET}-${TAG}-lk2nd.img
+            \`\`\`
+          - **Flash permanently to boot partition:**
+            \`\`\`bash
+            fastboot flash boot ${TARGET}-${TAG}-lk2nd.img
+            \`\`\`
+
+          ---
+
+          ## 🇷🇺 Русский
+
+          Скомпилированные бинарные образы вторичного загрузчика **${TARGET}**, собранные на базе апстрима lk2nd **${REF}**.
+
+          ### 📦 Содержимое релиза
+          - **\`${TARGET}-${TAG}-lk2nd.img\`**: Android boot-образ для запуска или прошивки через fastboot (содержит таблицу QCDT).
+          - **\`${TARGET}-${TAG}-emmc_appsboot.mbn\`**: Образ загрузчика для аварийной прошивки через EDL/QDL или записи в eMMC.
+          - **\`${TARGET}-${TAG}-qcdt.img\`**: Сводная таблица Device Tree.
+          - **\`${TARGET}-${TAG}.tar.gz\`**: Полный архив сборки, включая скомпилированные деревья устройств (\`.dtb\`).
+
+          ### ⚡ Инструкция по установке
+          - **Безопасная тестовая загрузка без перезаписи памяти:**
+            \`\`\`bash
+            fastboot boot ${TARGET}-${TAG}-lk2nd.img
+            \`\`\`
+          - **Постоянная установка в раздел boot:**
+            \`\`\`bash
+            fastboot flash boot ${TARGET}-${TAG}-lk2nd.img
+            \`\`\`
+
+          ### 🔒 Проверка контрольных сумм
+          \`\`\`bash
+          sha256sum -c SHA256SUMS
+          \`\`\`
+          EOF
+      # ---
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.ORG_GITHUB_TOKEN || github.token }}
+        run: |
+          TAG="${{ steps.params.outputs.tag }}"
+          TARGET="${{ steps.params.outputs.target }}"
+          EXTRA_FLAGS=""
+
+          if [ "${{ inputs.is_prerelease }}" = "true" ]; then
+            EXTRA_FLAGS="${EXTRA_FLAGS} --prerelease"
+          fi
+          if [ "${{ inputs.is_draft }}" = "true" ]; then
+            EXTRA_FLAGS="${EXTRA_FLAGS} --draft"
+          fi
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "[INFO] Updating existing release ${TAG}..."
+            gh release edit "${TAG}" --title "${TARGET} ${TAG}" --notes-file RELEASE_NOTES.md ${EXTRA_FLAGS}
+            gh release upload "${TAG}" dist/* --clobber
+          else
+            echo "[INFO] Creating new release ${TAG}..."
+            gh release create "${TAG}" dist/* \
+              --title "${TARGET} ${TAG}" \
+              --notes-file RELEASE_NOTES.md \
+              ${EXTRA_FLAGS}
+          fi
