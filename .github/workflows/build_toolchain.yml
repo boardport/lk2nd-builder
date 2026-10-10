@@ -6,7 +6,7 @@ on:
       lk2nd_ref:
         description: 'Upstream lk2nd release tag or branch'
         required: true
-        default: 'main'
+        default: '23.1'
         type: string
       lk2nd_commit:
         description: 'Optional exact 40-character commit SHA (overrides ref if set)'
