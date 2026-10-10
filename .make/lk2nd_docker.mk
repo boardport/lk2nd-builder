@@ -67,8 +67,10 @@ lk2nd-pull-toolbox:: docker-check-bin ## Pull lk2nd toolbox image from container
 
 lk2nd-pull-toolchain:: docker-check-bin ## Pull lk2nd toolchain image from registry (Usage: make lk2nd-pull-toolchain [LK2ND_REF=...])
 	@echo "[INFO] Make: Pulling lk2nd toolchain image ($(LK2ND_REF)) from $(DOCKER_REGISTRY)..."
-	@docker pull "$(DOCKER_IMAGE_PREFIX)/lk2nd-toolchain:$(LK2ND_REF)" || \
-		docker pull "$(DOCKER_IMAGE_PREFIX)/lk2nd-toolchain:latest"
+	@docker pull "$(DOCKER_IMAGE_PREFIX)/lk2nd-toolchain:$(LK2ND_REF)" || { \
+		docker pull "$(DOCKER_IMAGE_PREFIX)/lk2nd-toolchain:latest" && \
+		docker tag "$(DOCKER_IMAGE_PREFIX)/lk2nd-toolchain:latest" "$(DOCKER_IMAGE_PREFIX)/lk2nd-toolchain:$(LK2ND_REF)"; \
+	}
 
 lk2nd-pull-target:: docker-check-bin ## Pull lk2nd target image from registry (Usage: make lk2nd-pull-target [LK2ND_REF=...])
 	@echo "[INFO] Make: Pulling lk2nd target image ($(LK2ND_REF)) from $(DOCKER_REGISTRY)..."

@@ -6,7 +6,7 @@ on:
       lk2nd_ref:
         description: 'Upstream lk2nd release tag or branch'
         required: true
-        default: 'main'
+        default: '23.1'
         type: string
       soc:
         description: 'Target Qualcomm SoC architecture'
