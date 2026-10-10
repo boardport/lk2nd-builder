@@ -54,7 +54,49 @@ Ensure all git submodules are checked out and initialized:
 git submodule update --init --recursive
 ```
 
----
+### 3. Build Base Toolbox Container
+
+Build the foundational Debian build environment containing all host and cross-compilation tools:
+
+```bash
+make lk2nd-build-toolbox
+```
+
+### 4. Build Toolchain Environment with Upstream lk2nd
+
+Build the Docker container preloaded with the lk2nd secondary bootloader source tree (default or specific release tag):
+
+```bash
+# Build default branch (main) or specific tag (e.g. 23.1)
+make lk2nd-build-toolchain LK2ND_REF=23.1
+```
+
+### 5. Build Target Image with Baked-in Overlay (Optional)
+
+Build the ready-to-use target container with integrated BoardPort overlay:
+
+```bash
+make lk2nd-build-target LK2ND_REF=23.1 OVERLAY_REF=23.1
+```
+
+### 6. Compile Target Bootloader with Hardware Overlay
+
+Trigger bootloader compilation inside the container with automatic application of `overlay/`:
+
+```bash
+# Build specific release tag and target profile
+make lk2nd-build LK2ND_REF=23.1 LK2ND_TARGET=lk2nd-msm8916-boardport
+```
+
+Compiled bootloader binaries are placed into `docker/volumes/output/`.
+
+### 7. Interactive Container Development
+
+Spawn an interactive container shell with the hardware overlay bound into the build workspace:
+
+```bash
+make lk2nd-sh-toolchain LK2ND_REF=23.1
+```
 
 ## 📚 Project Documentation Hub
 
