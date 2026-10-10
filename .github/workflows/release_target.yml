@@ -90,21 +90,26 @@ jobs:
         id: package
         run: |
           mkdir -p dist
+          DIST_DIR="$(pwd)/dist"
+          STAGING_DIR="$(mktemp -d)"
           SRC_DIR="docker/volumes/output"
           TAG="${{ steps.params.outputs.tag }}"
           TARGET="${{ steps.params.outputs.target }}"
 
-          # Copy core bootable binaries
-          cp "${SRC_DIR}/lk2nd.img" "dist/${TARGET}-${TAG}-lk2nd.img"
-          cp "${SRC_DIR}/emmc_appsboot.mbn" "dist/${TARGET}-${TAG}-emmc_appsboot.mbn"
-          cp "${SRC_DIR}/qcdt.img" "dist/${TARGET}-${TAG}-qcdt.img"
-          cp "${SRC_DIR}/lk.bin" "dist/${TARGET}-${TAG}-lk.bin"
+          # Collect compiled artifacts with original filenames
+          cp "${SRC_DIR}/lk2nd.img" "${STAGING_DIR}/lk2nd.img"
+          cp "${SRC_DIR}/emmc_appsboot.mbn" "${STAGING_DIR}/emmc_appsboot.mbn"
+          cp "${SRC_DIR}/qcdt.img" "${STAGING_DIR}/qcdt.img"
+          cp "${SRC_DIR}/lk.bin" "${STAGING_DIR}/lk.bin"
 
-          # Create full archive with device tree blobs
-          tar -czf "dist/${TARGET}-${TAG}.tar.gz" -C "${SRC_DIR}" .
+          # Pack into tar.gz and zip without path prefixes
+          tar -czf "${DIST_DIR}/${TARGET}-${TAG}.tar.gz" -C "${STAGING_DIR}" lk2nd.img emmc_appsboot.mbn qcdt.img lk.bin
+          (cd "${STAGING_DIR}" && zip -9 -q -r "${DIST_DIR}/${TARGET}-${TAG}.zip" .)
 
-          # Calculate SHA-256 checksums
-          (cd dist && sha256sum * > SHA256SUMS)
+          # Calculate SHA-256 checksums for archive packages
+          (cd dist && sha256sum "${TARGET}-${TAG}.tar.gz" "${TARGET}-${TAG}.zip" > SHA256SUMS)
+
+          rm -rf "${STAGING_DIR}"
       # ---
       - name: Generate bilingual release notes
         run: |
@@ -112,30 +117,27 @@ jobs:
           TARGET="${{ steps.params.outputs.target }}"
           REF="${{ steps.params.outputs.lk2nd_ref }}"
 
-          cat << 'EOF' > RELEASE_NOTES.md
-          # 🚀 BoardPort — lk2nd Bootloader Release
-          EOF
-
-          cat << EOF >> RELEASE_NOTES.md
-
+          cat << EOF > RELEASE_NOTES.md
           ## 🇬🇧 English
 
           Precompiled secondary bootloader images for **${TARGET}**, based on upstream lk2nd **${REF}**.
 
-          ### 📦 Release Assets
-          - **\`${TARGET}-${TAG}-lk2nd.img\`**: Android boot image for fastboot booting/flashing (contains QCDT DTB table).
-          - **\`${TARGET}-${TAG}-emmc_appsboot.mbn\`**: Bootloader image for EDL/QDL flashing or eMMC partition writing.
-          - **\`${TARGET}-${TAG}-qcdt.img\`**: Consolidated Device Tree table.
-          - **\`${TARGET}-${TAG}.tar.gz\`**: Full build tree including compiled device tree blobs (\`.dtb\`).
+          ### 📦 Archive Contents
+          \`\`\`text
+          lk2nd.img          # Android boot image for fastboot boot/flash (includes QCDT table)
+          emmc_appsboot.mbn  # Primary bootloader payload for EDL/QDL or raw partition
+          qcdt.img           # Qualcomm Device Tree table (QCDT)
+          lk.bin             # Raw Little Kernel executable payload
+          \`\`\`
 
           ### ⚡ Usage Instructions
           - **Test boot without flashing:**
             \`\`\`bash
-            fastboot boot ${TARGET}-${TAG}-lk2nd.img
+            fastboot boot lk2nd.img
             \`\`\`
           - **Flash permanently to boot partition:**
             \`\`\`bash
-            fastboot flash boot ${TARGET}-${TAG}-lk2nd.img
+            fastboot flash boot lk2nd.img
             \`\`\`
 
           ---
@@ -144,20 +146,22 @@ jobs:
 
           Скомпилированные бинарные образы вторичного загрузчика **${TARGET}**, собранные на базе апстрима lk2nd **${REF}**.
 
-          ### 📦 Содержимое релиза
-          - **\`${TARGET}-${TAG}-lk2nd.img\`**: Android boot-образ для запуска или прошивки через fastboot (содержит таблицу QCDT).
-          - **\`${TARGET}-${TAG}-emmc_appsboot.mbn\`**: Образ загрузчика для аварийной прошивки через EDL/QDL или записи в eMMC.
-          - **\`${TARGET}-${TAG}-qcdt.img\`**: Сводная таблица Device Tree.
-          - **\`${TARGET}-${TAG}.tar.gz\`**: Полный архив сборки, включая скомпилированные деревья устройств (\`.dtb\`).
+          ### 📦 Содержимое архива
+          \`\`\`text
+          lk2nd.img          # Android boot-образ для запуска и прошивки через fastboot
+          emmc_appsboot.mbn  # Первичный загрузчик для аварийной прошивки EDL/QDL или записи в eMMC
+          qcdt.img           # Сводная таблица деревьев устройств Qualcomm (QCDT)
+          lk.bin             # Исполняемый бинарный образ Little Kernel
+          \`\`\`
 
           ### ⚡ Инструкция по установке
           - **Безопасная тестовая загрузка без перезаписи памяти:**
             \`\`\`bash
-            fastboot boot ${TARGET}-${TAG}-lk2nd.img
+            fastboot boot lk2nd.img
             \`\`\`
           - **Постоянная установка в раздел boot:**
             \`\`\`bash
-            fastboot flash boot ${TARGET}-${TAG}-lk2nd.img
+            fastboot flash boot lk2nd.img
             \`\`\`
 
           ### 🔒 Проверка контрольных сумм
@@ -183,12 +187,12 @@ jobs:
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             echo "[INFO] Updating existing release ${TAG}..."
-            gh release edit "${TAG}" --title "${TARGET} ${TAG}" --notes-file RELEASE_NOTES.md ${EXTRA_FLAGS}
+            gh release edit "${TAG}" --title "${TARGET} @ ${TAG}" --notes-file RELEASE_NOTES.md ${EXTRA_FLAGS}
             gh release upload "${TAG}" dist/* --clobber
           else
             echo "[INFO] Creating new release ${TAG}..."
             gh release create "${TAG}" dist/* \
-              --title "${TARGET} ${TAG}" \
+              --title "${TARGET} @ ${TAG}" \
               --notes-file RELEASE_NOTES.md \
               ${EXTRA_FLAGS}
           fi
