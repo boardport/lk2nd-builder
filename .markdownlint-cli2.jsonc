@@ -25,6 +25,8 @@
     "**/tmp/**",
     "docker/**",
     "lk2nd/**",
-    "overlay/**"
+    "overlay/**",
+    "release/**",
+    "releases/**"
   ]
 }

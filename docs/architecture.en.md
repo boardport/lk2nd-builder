@@ -44,7 +44,7 @@ lk2nd-builder/
 │   ├── workflows/                  # GitHub Actions automation workflows
 │   │   ├── build_toolbox.yml       # Base Toolbox image build pipeline
 │   │   ├── build_toolchain.yml     # Toolchain image build pipeline with upstream lk2nd
-│   │   ├── release_target.yml      # Compile and publish bootloader images to GitHub Releases
+│   │   ├── release_boardport.yml   # Compile and publish BoardPort bootloader images to lk2nd-releases
 │   │   └── markdownlint.yml        # Automated markdown documentation verification
 │   ├── ISSUE_TEMPLATE/             # Issue templates (bug reports, feature requests)
 │   └── PULL_REQUEST_TEMPLATE/      # Pull request description templates

@@ -44,7 +44,7 @@ lk2nd-builder/
 │   ├── workflows/                  # Конвейеры автоматизации GitHub Actions
 │   │   ├── build_toolbox.yml       # Сборка базового слоя Toolbox
 │   │   ├── build_toolchain.yml     # Сборка слоя Toolchain с апстримом lk2nd
-│   │   ├── release_target.yml      # Сборка и публикация образов загрузчика в GitHub Releases
+│   │   ├── release_boardport.yml   # Сборка и публикация образов BoardPort в lk2nd-releases
 │   │   └── markdownlint.yml        # Автоматическая проверка документации
 │   ├── ISSUE_TEMPLATE/             # Шаблоны обращений (баг-репорты, фичи)
 │   └── PULL_REQUEST_TEMPLATE/      # Шаблоны описания PR

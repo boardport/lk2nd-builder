@@ -1,0 +1,251 @@
+name: Release BoardPort Bootloader
+
+on:
+  workflow_dispatch:
+    inputs:
+      lk2nd_ref:
+        description: 'Upstream lk2nd release tag or branch'
+        required: true
+        default: 'main'
+        type: string
+      soc:
+        description: 'Target Qualcomm SoC architecture'
+        required: true
+        default: 'msm8916'
+        type: string
+      release_version:
+        description: 'Release version (e.g. 23.1, 23.1-1)'
+        required: true
+        default: '23.1'
+        type: string
+      is_prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        required: false
+        default: false
+      is_draft:
+        description: 'Create as draft release'
+        type: boolean
+        required: false
+        default: false
+  push:
+    tags:
+      - 'boardport-[0-9a-zA-Z]+-[0-9]+.[0-9]+*'
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  release-boardport:
+    name: Release BoardPort (${{ inputs.soc || 'msm8916' }} @ ${{ inputs.release_version || github.ref_name }})
+    runs-on: ubuntu-latest
+    steps:
+      # ---
+      - name: Checkout repository
+        id: checkout-repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.ORG_GITHUB_TOKEN || github.token }}
+          submodules: recursive
+      # ---
+      - name: Setup Docker Buildx
+        id: setup-buildx
+        uses: docker/setup-buildx-action@v4
+      # ---
+      - name: Log in to GitHub Container Registry
+        id: login-ghcr
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.ORG_GITHUB_TOKEN || github.token }}
+      # ---
+      - name: Resolve build parameters
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SOC="${{ inputs.soc }}"
+            VERSION="${{ inputs.release_version }}"
+            echo "lk2nd_ref=${{ inputs.lk2nd_ref }}" >> $GITHUB_OUTPUT
+            echo "soc=${SOC}" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "tag=boardport-${SOC}-${VERSION}" >> $GITHUB_OUTPUT
+            echo "title=BoardPort lk2nd & lk1st (${SOC^^}) v${VERSION}" >> $GITHUB_OUTPUT
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            SOC="$(echo "${TAG}" | awk -F'-' '{print $2}')"
+            VERSION="$(echo "${TAG}" | cut -d'-' -f3-)"
+            echo "lk2nd_ref=${VERSION}" >> $GITHUB_OUTPUT
+            echo "soc=${SOC}" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+            echo "title=BoardPort lk2nd & lk1st (${SOC^^}) v${VERSION}" >> $GITHUB_OUTPUT
+          fi
+      # ---
+      - name: Prepare toolchain container
+        run: |
+          make lk2nd-pull-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}" || \
+            make lk2nd-build-toolchain LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}"
+      # ---
+      - name: Compile secondary bootloader (lk2nd)
+        run: |
+          make lk2nd-build \
+            LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}" \
+            LK2ND_TARGET="lk2nd-${{ steps.params.outputs.soc }}-boardport"
+      # ---
+      - name: Stage secondary bootloader artifacts
+        run: |
+          mkdir -p staging
+          SRC_DIR="docker/volumes/output"
+          cp "${SRC_DIR}/lk2nd.img" "staging/lk2nd.img"
+          cp "${SRC_DIR}/emmc_appsboot.mbn" "staging/emmc_appsboot.mbn"
+          cp "${SRC_DIR}/qcdt.img" "staging/qcdt.img"
+          cp "${SRC_DIR}/lk.bin" "staging/lk.bin"
+          rm -rf "${SRC_DIR}"/*
+      # ---
+      - name: Compile primary bootloader (lk1st)
+        run: |
+          make lk2nd-build \
+            LK2ND_REF="${{ steps.params.outputs.lk2nd_ref }}" \
+            LK2ND_TARGET="lk1st-${{ steps.params.outputs.soc }}-boardport"
+      # ---
+      - name: Stage primary bootloader artifacts
+        run: |
+          SRC_DIR="docker/volumes/output"
+          cp "${SRC_DIR}/emmc_appsboot.mbn" "staging/lk1st.mbn"
+          cp "${SRC_DIR}/lk.bin" "staging/lk1st.bin"
+          rm -rf "${SRC_DIR}"/*
+      # ---
+      - name: Package release assets
+        id: package
+        run: |
+          mkdir -p dist
+          DIST_DIR="$(pwd)/dist"
+          TAG="${{ steps.params.outputs.tag }}"
+
+          # Pack into tar.gz and zip without path prefixes
+          tar -czf "${DIST_DIR}/${TAG}.tar.gz" -C staging lk2nd.img lk1st.mbn emmc_appsboot.mbn qcdt.img lk.bin lk1st.bin
+          (cd staging && zip -9 -q -r "${DIST_DIR}/${TAG}.zip" .)
+
+          # Calculate individual SHA-256 checksums for each archive
+          (cd dist && sha256sum "${TAG}.tar.gz" > "${TAG}.tar.gz.sha256")
+          (cd dist && sha256sum "${TAG}.zip" > "${TAG}.zip.sha256")
+
+          # Calculate unified manifest for archives
+          (cd dist && sha256sum "${TAG}.tar.gz" "${TAG}.zip" > SHA256SUMS)
+
+          rm -rf staging
+      # ---
+      - name: Generate bilingual release notes
+        run: |
+          TAG="${{ steps.params.outputs.tag }}"
+          SOC="${{ steps.params.outputs.soc }}"
+          REF="${{ steps.params.outputs.lk2nd_ref }}"
+          SOC_UPPER="${SOC^^}"
+
+          cat << EOF > RELEASE_NOTES.md
+          ## 🇬🇧 English
+
+          Precompiled secondary (\`lk2nd\`) and primary (\`lk1st\`) bootloader images for **${SOC_UPPER}**, based on upstream lk2nd **${REF}** with BoardPort hardware overlays.
+
+          ### 📦 Archive Contents
+          \`\`\`text
+          lk2nd.img          # Android boot image for fastboot boot/flash (includes QCDT table)
+          lk1st.mbn          # Primary bootloader payload for aboot partition (EDL/QDL or fastboot)
+          emmc_appsboot.mbn  # Secondary bootloader aboot payload
+          qcdt.img           # Qualcomm Device Tree table (QCDT)
+          lk.bin             # Raw Little Kernel secondary executable payload
+          lk1st.bin          # Raw Little Kernel primary executable payload
+          \`\`\`
+
+          ### ⚡ Usage Instructions
+          - **Test secondary bootloader without flashing:**
+            \`\`\`bash
+            fastboot boot lk2nd.img
+            \`\`\`
+          - **Flash secondary bootloader permanently:**
+            \`\`\`bash
+            fastboot flash boot lk2nd.img
+            \`\`\`
+          - **Flash primary bootloader (emergency recovery or expert mode):**
+            \`\`\`bash
+            fastboot flash aboot lk1st.mbn
+            \`\`\`
+
+          ### 🔒 Checksum Verification
+          \`\`\`bash
+          # Verify individual archive package:
+          sha256sum -c ${TAG}.tar.gz.sha256
+
+          # Or verify entire release manifest:
+          sha256sum -c SHA256SUMS
+          \`\`\`
+
+          ---
+
+          ## 🇷🇺 Русский
+
+          Скомпилированные бинарные образы вторичного (\`lk2nd\`) и первичного (\`lk1st\`) загрузчиков для **${SOC_UPPER}**, собранные на базе апстрима lk2nd **${REF}** с интеграцией аппаратных оверлеев BoardPort.
+
+          ### 📦 Содержимое архива
+          \`\`\`text
+          lk2nd.img          # Android boot-образ для запуска и прошивки через fastboot
+          lk1st.mbn          # Первичный загрузчик для раздела aboot (аварийная прошивка EDL/QDL)
+          emmc_appsboot.mbn  # Вторичный загрузчик aboot
+          qcdt.img           # Сводная таблица деревьев устройств Qualcomm (QCDT)
+          lk.bin             # Исполняемый бинарный образ Little Kernel (вторичный)
+          lk1st.bin          # Исполняемый бинарный образ Little Kernel (первичный)
+          \`\`\`
+
+          ### ⚡ Инструкция по установке
+          - **Безопасная тестовая загрузка без перезаписи памяти:**
+            \`\`\`bash
+            fastboot boot lk2nd.img
+            \`\`\`
+          - **Постоянная установка вторичного загрузчика в раздел boot:**
+            \`\`\`bash
+            fastboot flash boot lk2nd.img
+            \`\`\`
+          - **Прошивка первичного загрузчика в раздел aboot (экспертный режим/восстановление):**
+            \`\`\`bash
+            fastboot flash aboot lk1st.mbn
+            \`\`\`
+
+          ### 🔒 Проверка контрольных сумм
+          \`\`\`bash
+          # Проверка скачанного архива:
+          sha256sum -c ${TAG}.tar.gz.sha256
+
+          # Либо проверка всех файлов по сводному манифесту:
+          sha256sum -c SHA256SUMS
+          \`\`\`
+          EOF
+      # ---
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.ORG_GITHUB_TOKEN || github.token }}
+        run: |
+          TARGET_REPO="boardport/lk2nd-releases"
+          TAG="${{ steps.params.outputs.tag }}"
+          TITLE="${{ steps.params.outputs.title }}"
+          EXTRA_FLAGS=""
+
+          if [ "${{ inputs.is_prerelease }}" = "true" ]; then
+            EXTRA_FLAGS="${EXTRA_FLAGS} --prerelease"
+          fi
+          if [ "${{ inputs.is_draft }}" = "true" ]; then
+            EXTRA_FLAGS="${EXTRA_FLAGS} --draft"
+          fi
+
+          if gh release view "${TAG}" --repo "${TARGET_REPO}" >/dev/null 2>&1; then
+            echo "[INFO] Updating existing release ${TAG} in ${TARGET_REPO}..."
+            gh release edit "${TAG}" --repo "${TARGET_REPO}" --title "${TITLE}" --notes-file RELEASE_NOTES.md ${EXTRA_FLAGS}
+            gh release upload "${TAG}" dist/* --repo "${TARGET_REPO}" --clobber
+          else
+            echo "[INFO] Creating new release ${TAG} in ${TARGET_REPO}..."
+            gh release create "${TAG}" dist/* --repo "${TARGET_REPO}" \
+              --title "${TITLE}" \
+              --notes-file RELEASE_NOTES.md \
+              ${EXTRA_FLAGS}
+          fi
